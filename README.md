@@ -5,7 +5,7 @@ Rui Zhang and Cynthia Sturton. 2018. A recursive strategy for symbolic execution
 # Dependencies
 
 ## Coq and Coq IDE: [Coq Github](https://github.com/coq/coq)
-We recommend installing Coq using OPAM.
+We recommend installing Coq using OPAM. <br />
 `opam install coq`<br />
 `opam install coqide`<br />
 `opam upgrade `<br />

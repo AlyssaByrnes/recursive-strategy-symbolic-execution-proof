@@ -8,7 +8,6 @@ Module ConcState.
 Variable input_variable : Type.
 Variable variable : Type.
 Variable concrete_value : Type.
-Variable map_alphabet : Type.
 Variable concrete_expression : Type.
 
 
@@ -58,11 +57,11 @@ Import ConcState.
 Module SymbolicExec.
 
 Variable Phi : Type.
-Variable symbolic_alphabet : Type.
+Variable symbolic_mapping : Type.
 Variable symbolic_expression : Type.
+Variable path_condition : Type.
 
-Definition mta := symbolic_alphabet -> ConcState.map_alphabet.
-Axiom map_to_alphabet : mta.
+
 
 (*** Symbolic State - list of sym_state_tuples ***)
 
@@ -105,7 +104,7 @@ Axiom logical_and : and.
 
 (*** Symbolic Execution Tree node ***)
 Inductive node_tuple : Type :=
-|consNode (ls : list sym_state_tuple) (pc : symbolic_expression).
+|consNode (ls : list sym_state_tuple) (pc : path_condition).
 
 
 (* Getters *)
@@ -114,7 +113,7 @@ match n with
 |consNode s pc => s
 end.
 
-Definition get_pc ( n : node_tuple) : symbolic_expression:=
+Definition get_pc ( n : node_tuple) : path_condition :=
 match n with
 |consNode s pc => pc
 end.
@@ -163,29 +162,29 @@ end.
 
 
 (* Evaluates path constraint to True or False *)
-Definition pc_e := ConcState.concrete_value -> Prop.
+Definition pc_e := path_condition -> symbolic_mapping -> Prop.
 Axiom pc_eval : pc_e.
 
-Definition mtc := symbolic_expression -> ConcState.map_alphabet -> ConcState.concrete_expression.
+Definition mtc := symbolic_expression -> symbolic_mapping -> ConcState.concrete_expression.
 Axiom map_to_concrete : mtc.
 
 Definition simp := ConcState.concrete_expression -> ConcState.concrete_value. 
 Axiom simplify : simp.
 
-(* Maps a symbolic expression over some alphabet to a concrete value *)
-Definition instantiate (s : symbolic_expression) (a : symbolic_alphabet) : ConcState.concrete_value :=
-simplify (map_to_concrete s (map_to_alphabet a)).
+(* Maps a symbolic expression over some mapping to a concrete value *)
+Definition instantiate (s : symbolic_expression) (m : symbolic_mapping) : ConcState.concrete_value :=
+simplify (map_to_concrete s m).
 
 (* Instantiates symbolic state to a concrete state *)
 Definition state_instantiate 
-(s : sym_state_tuple) (a : symbolic_alphabet) : conc_state_tuple :=
+(s : sym_state_tuple) (a : symbolic_mapping) : conc_state_tuple :=
 (consConc
   (get_sym_variable s)
  (instantiate (get_sym_exp s) a)).
 
 (* Instantiates symbolic input to concrete input *)
 Definition input_instantiate
-( i : sym_input_tuple)  (a : symbolic_alphabet) : conc_input_tuple :=
+( i : sym_input_tuple)  (a : symbolic_mapping) : conc_input_tuple :=
 (consCInp
 (get_sym_inp_variable i)
 (instantiate (get_inp_sym_exp i) a)).
@@ -193,7 +192,7 @@ Definition input_instantiate
 Notation "x :: l" := (cons x l) (at level 60, right associativity).
 
 Fixpoint list_state_instantiate 
-(ls : list sym_state_tuple)  (a : symbolic_alphabet) : list conc_state_tuple :=
+(ls : list sym_state_tuple)  (a : symbolic_mapping) : list conc_state_tuple :=
 match ls with
 |nil => nil
 |s :: nil => (consConc
@@ -205,7 +204,7 @@ match ls with
 end.
 
 Fixpoint list_input_instantiate
-( li : list sym_input_tuple)  (a : symbolic_alphabet) : list conc_input_tuple :=
+( li : list sym_input_tuple)  (a : symbolic_mapping) : list conc_input_tuple :=
 match li with
 |nil => nil
 |i :: nil => (consCInp
@@ -217,14 +216,14 @@ match li with
 end.
 
 
-Axiom sound_paths :
-forall (a : symbolic_alphabet) (s : list sym_state_tuple)
+(*Axiom sound_paths :
+forall (a : symbolic_mapping) (s : list sym_state_tuple)
 (i : list sym_input_tuple) (n : node_tuple),
 in_tree n (sym_ex s i)  ->
 (pc_eval (instantiate (get_pc n) a)).
 
 Axiom unique_paths : 
-forall (a : symbolic_alphabet) (s : list sym_state_tuple)
+forall (a : symbolic_mapping) (s : list sym_state_tuple)
 (i : list sym_input_tuple) (n1 n2 : node_tuple)
 ( t : SE_tree),
 t = sym_ex s i
@@ -234,14 +233,14 @@ t = sym_ex s i
 /\ (is_child_of n1 n2 t = False)
 /\(is_child_of n2 n1 t = False)
 ->(pc_eval (instantiate (logical_and (get_pc n1) (get_pc n2)) a)) = False.
-
+*)
 
 Axiom commutativity:
 forall 
 (li' : list sym_input_tuple) (s : list sym_state_tuple) ( l : node_tuple)
- (a : symbolic_alphabet),
+ (a : symbolic_mapping),
 (is_leaf l (sym_ex s li')) /\
-(pc_eval (instantiate (get_pc l) a))
+(pc_eval (get_pc l) a)
 -> 
 (conc_ex 
 (list_state_instantiate s a)
@@ -330,7 +329,7 @@ Module SERecurs.
 Variable init_conc_state: list ConcState.conc_state_tuple.
 Variable Error_States : Ensemble (list ConcState.conc_state_tuple).
 Variable tree_list : list SE_tree.
-Variable alpha : SymbolicExec.symbolic_alphabet.
+Variable alpha : SymbolicExec.symbolic_mapping.
 
 Axiom no_leaf_requirement:
 forall (s : SE_tree),
@@ -376,16 +375,22 @@ forall (s: node_tuple) (t : SE_tree),
 is_list_leaf s t <->
 (find_leaf t = s).
 
-Definition gi := SymbolicExec.symbolic_expression -> list ConcState.conc_input_tuple.
-Axiom get_input : gi.
+Definition cm := SymbolicExec.path_condition -> SymbolicExec.symbolic_mapping.
+Axiom compute_mapping : cm.
+
+Definition plug_in := SymbolicExec.symbolic_mapping -> list ConcState.conc_input_tuple.
+Axiom plug_in_input_values : plug_in.
+
+Definition get_input (pc : SymbolicExec.path_condition) : list ConcState.conc_input_tuple:=
+plug_in_input_values (compute_mapping pc). 
 
 
 Axiom get_input_def :
 (* Finds inputs given a pc that satisfy that pc *)
-forall (l : node_tuple) (a : SymbolicExec.symbolic_alphabet) ( i : list sym_input_tuple) , 
+forall (l : node_tuple) (a : SymbolicExec.symbolic_mapping) ( i : list sym_input_tuple) , 
 ((exists (s : list sym_state_tuple) ,
 (is_leaf l (sym_ex s i)) /\
-(pc_eval (instantiate (get_pc l) a)))) ->
+(pc_eval (get_pc l) a))) ->
 (list_input_instantiate i a)
 = (get_input (get_pc l)).
 
@@ -406,22 +411,22 @@ forall (t : SE_tree) (cs : list ConcState.conc_state_tuple)
 ,
 is_element_of (circle_op_1 t) cs <->
 exists (s : list sym_state_tuple) (s' : node_tuple)
- (a : SymbolicExec.symbolic_alphabet)
+ (a : SymbolicExec.symbolic_mapping)
 ,
 (s = (get_sym_state (root t))) /\
 (is_list_leaf s' t) /\
-pc_eval (instantiate (get_pc s') a) /\
+(pc_eval (get_pc s') a) /\
 cs = list_state_instantiate s a.
 
 Axiom c_o_2_def : 
 forall (t : SE_tree) (cs: list ConcState.conc_state_tuple)
 ,
 is_element_of (circle_op_2 t) cs <->
-exists (s : list sym_state_tuple) (s' : node_tuple) (a : SymbolicExec.symbolic_alphabet)
+exists (s : list sym_state_tuple) (s' : node_tuple) (a : SymbolicExec.symbolic_mapping)
 ,
 (s = (get_sym_state (root t))) /\
 (is_list_leaf s' t) /\
-pc_eval (instantiate (get_pc s') a) /\
+(pc_eval (get_pc s') a) /\
 (cs = list_state_instantiate (get_sym_state s') a).
 
 

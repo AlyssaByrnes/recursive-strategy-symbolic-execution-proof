@@ -5,49 +5,49 @@ Module ConcState.
 
 
 
-Variable input_variable : Type.
-Variable variable : Type.
+Variable input_signal : Type.
+Variable register : Type.
 Variable concrete_value : Type.
 Variable concrete_expression : Type.
 
 
-(*** Concrete state - list of conc_state_tuples ***)
-Inductive conc_state_tuple : Type :=
-|consConc (r : variable) (cv : concrete_value).
+(*** Concrete state - list of conc_assignment_tuples ***)
+Inductive conc_assignment_tuple : Type :=
+|consConc (r : register) (cv : concrete_value).
 
 
-(*** Concrete input - list of conc_input_tuples ***)
-Inductive conc_input_tuple : Type :=
-|consCInp (ia : input_variable) (cv : concrete_value).
+(*** Concrete input - list of conc_input_assignment_tuples ***)
+Inductive conc_input_assignment_tuple : Type :=
+|consCInp (ia : input_signal) (cv : concrete_value).
 
 
 
 (* Getters *)
 
-Definition get_conc_val ( c : conc_state_tuple) : concrete_value :=
+Definition get_conc_val ( c : conc_assignment_tuple) : concrete_value :=
 match c with 
 |consConc r cv => cv
 end.
 
-Definition get_conc_inp_val ( c : conc_input_tuple) : concrete_value :=
+Definition get_conc_inp_val ( c : conc_input_assignment_tuple) : concrete_value :=
 match c with 
 |consCInp ia cv => cv
 end.
 
 
-Definition get_conc_variable ( c : conc_state_tuple) : variable :=
+Definition get_conc_register ( c : conc_assignment_tuple) : register :=
 match c with 
 |consConc r cv => r
 end.
 
-Definition get_conc_inp_variable ( c : conc_input_tuple) : input_variable :=
+Definition get_conc_inp_register ( c : conc_input_assignment_tuple) : input_signal :=
 match c with 
 |consCInp ia cv => ia
 end.
 
 
 
-Definition concrete_execution :=  list conc_state_tuple -> list conc_input_tuple ->  list conc_state_tuple.
+Definition concrete_execution :=  list conc_assignment_tuple -> list conc_input_assignment_tuple ->  list conc_assignment_tuple.
 Axiom conc_ex : concrete_execution.
 
 
@@ -63,35 +63,35 @@ Variable path_condition : Type.
 
 
 
-(*** Symbolic State - list of sym_state_tuples ***)
+(*** Symbolic State - list of sym_assignment_tuples ***)
 
-Inductive sym_state_tuple : Type :=
-|consSym (r : ConcState.variable) (se : symbolic_expression).
+Inductive sym_assignment_tuple : Type :=
+|consSym (r : ConcState.register) (se : symbolic_expression).
 
-(*** Symbolic Input - list of sym_input_tuples ***)
+(*** Symbolic Input - list of sym_input_assignment_tuples ***)
 
-Inductive sym_input_tuple : Type :=
-|consSInp (ia : ConcState.input_variable) (se : symbolic_expression).
+Inductive sym_input_assignment_tuple : Type :=
+|consSInp (ia : ConcState.input_signal) (se : symbolic_expression).
 
 
 (* Getters *)
 
-Definition get_sym_exp ( s : sym_state_tuple) : symbolic_expression :=
+Definition get_sym_exp ( s : sym_assignment_tuple) : symbolic_expression :=
 match s with 
 |consSym r se => se
 end.
 
-Definition get_inp_sym_exp ( s : sym_input_tuple) : symbolic_expression :=
+Definition get_inp_sym_exp ( s : sym_input_assignment_tuple) : symbolic_expression :=
 match s with 
 |consSInp ia se => se
 end.
 
-Definition get_sym_variable ( s : sym_state_tuple) : ConcState.variable :=
+Definition get_sym_register ( s : sym_assignment_tuple) : ConcState.register :=
 match s with 
 |consSym r se => r
 end.
 
-Definition get_sym_inp_variable ( s : sym_input_tuple) : ConcState.input_variable :=
+Definition get_sym_inp_register ( s : sym_input_assignment_tuple) : ConcState.input_signal :=
 match s with 
 |consSInp ia se => ia
 end.
@@ -104,11 +104,11 @@ Axiom logical_and : and.
 
 (*** Symbolic Execution Tree node ***)
 Inductive node_tuple : Type :=
-|consNode (ls : list sym_state_tuple) (pc : path_condition).
+|consNode (ls : list sym_assignment_tuple) (pc : path_condition).
 
 
 (* Getters *)
-Definition get_sym_state ( n : node_tuple) : list sym_state_tuple:=
+Definition get_sym_assignment ( n : node_tuple) : list sym_assignment_tuple:=
 match n with
 |consNode s pc => s
 end.
@@ -129,14 +129,14 @@ Inductive SE_tree : Type :=
 Definition r :=  SE_tree -> node_tuple.
 Axiom root : r.
 
-Definition s_e := list sym_state_tuple -> list sym_input_tuple -> SE_tree.
+Definition s_e := list sym_assignment_tuple -> list sym_input_assignment_tuple -> SE_tree.
 Axiom sym_ex : s_e.
 
 (* Root is defined as (s, i) in tree t, 
 where t is the symbolic execution of s over symbolic input i *)
 Axiom root_def : 
-forall (s : list sym_state_tuple) (sym_inp : list sym_input_tuple),
-get_sym_state (root (sym_ex s sym_inp)) =  s.
+forall (s : list sym_assignment_tuple) (sym_inp : list sym_input_assignment_tuple),
+get_sym_assignment (root (sym_ex s sym_inp)) =  s.
 
 
 Fixpoint is_leaf (s' : node_tuple) (s : SE_tree) : Prop :=
@@ -177,41 +177,41 @@ simplify (map_to_concrete s m).
 
 (* Instantiates symbolic state to a concrete state *)
 Definition state_instantiate 
-(s : sym_state_tuple) (a : symbolic_mapping) : conc_state_tuple :=
+(s : sym_assignment_tuple) (a : symbolic_mapping) : conc_assignment_tuple :=
 (consConc
-  (get_sym_variable s)
+  (get_sym_register s)
  (instantiate (get_sym_exp s) a)).
 
 (* Instantiates symbolic input to concrete input *)
 Definition input_instantiate
-( i : sym_input_tuple)  (a : symbolic_mapping) : conc_input_tuple :=
+( i : sym_input_assignment_tuple)  (a : symbolic_mapping) : conc_input_assignment_tuple :=
 (consCInp
-(get_sym_inp_variable i)
+(get_sym_inp_register i)
 (instantiate (get_inp_sym_exp i) a)).
 
 Notation "x :: l" := (cons x l) (at level 60, right associativity).
 
 Fixpoint list_state_instantiate 
-(ls : list sym_state_tuple)  (a : symbolic_mapping) : list conc_state_tuple :=
+(ls : list sym_assignment_tuple)  (a : symbolic_mapping) : list conc_assignment_tuple :=
 match ls with
 |nil => nil
 |s :: nil => (consConc
-            (get_sym_variable s)
+            (get_sym_register s)
             (instantiate (get_sym_exp s) a)) :: nil
 |s :: head => (consConc
-            (get_sym_variable s)
+            (get_sym_register s)
             (instantiate (get_sym_exp s) a)) :: (list_state_instantiate head a)
 end.
 
 Fixpoint list_input_instantiate
-( li : list sym_input_tuple)  (a : symbolic_mapping) : list conc_input_tuple :=
+( li : list sym_input_assignment_tuple)  (a : symbolic_mapping) : list conc_input_assignment_tuple :=
 match li with
 |nil => nil
 |i :: nil => (consCInp
-              (get_sym_inp_variable i)
+              (get_sym_inp_register i)
               (instantiate (get_inp_sym_exp i) a)) :: nil
 |i :: head => (consCInp
-              (get_sym_inp_variable i)
+              (get_sym_inp_register i)
               (instantiate (get_inp_sym_exp i) a)) :: (list_input_instantiate head a)
 end.
 
@@ -223,8 +223,8 @@ executed in the normal fashion, will trace the same path
 that pc never becomes identically false. *)
 
 Axiom sound_paths :
-forall  (s : list sym_state_tuple)
-(i : list sym_input_tuple) (n : node_tuple),
+forall  (s : list sym_assignment_tuple)
+(i : list sym_input_assignment_tuple) (n : node_tuple),
 in_tree n (sym_ex s i)  ->
 exists (a : symbolic_mapping),
 (pc_eval (get_pc n) a).
@@ -236,8 +236,8 @@ terminal leaves have a unique forking node where the
 two paths diverge.  *) 
 
 Axiom unique_paths : 
-forall (a : symbolic_mapping) (s : list sym_state_tuple)
-(i : list sym_input_tuple) (n1 n2 : node_tuple)
+forall (a : symbolic_mapping) (s : list sym_assignment_tuple)
+(i : list sym_input_assignment_tuple) (n1 n2 : node_tuple)
 ( t : SE_tree),
 t = sym_ex s i
 /\ n1 <> n2
@@ -249,7 +249,7 @@ t = sym_ex s i
 
 Axiom commutativity:
 forall 
-(li' : list sym_input_tuple) (s : list sym_state_tuple) ( l : node_tuple)
+(li' : list sym_input_assignment_tuple) (s : list sym_assignment_tuple) ( l : node_tuple)
  (a : symbolic_mapping),
 (is_leaf l (sym_ex s li')) /\
 (pc_eval (get_pc l) a)
@@ -257,7 +257,7 @@ forall
 (conc_ex 
 (list_state_instantiate s a)
 (list_input_instantiate li' a))
-= (list_state_instantiate (get_sym_state l) a).
+= (list_state_instantiate (get_sym_assignment l) a).
 
 
 
@@ -320,17 +320,17 @@ end.
 
 
 (*** Set Operation Shorthands ***)
-Definition is_subset (x y : Ensemble (list ConcState.conc_state_tuple)) : Prop :=
-Included (list  ConcState.conc_state_tuple) x y.
+Definition is_subset (x y : Ensemble (list ConcState.conc_assignment_tuple)) : Prop :=
+Included (list  ConcState.conc_assignment_tuple) x y.
 
-Definition is_element_of (y : Ensemble (list ConcState.conc_state_tuple)) (x : list ConcState.conc_state_tuple) : Prop :=
-In (list  ConcState.conc_state_tuple) y x.
+Definition is_element_of (y : Ensemble (list ConcState.conc_assignment_tuple)) (x : list ConcState.conc_assignment_tuple) : Prop :=
+In (list  ConcState.conc_assignment_tuple) y x.
 
-Definition empty_set : Ensemble (list ConcState.conc_state_tuple) := 
-Empty_set (list ConcState.conc_state_tuple).
+Definition empty_set : Ensemble (list ConcState.conc_assignment_tuple) := 
+Empty_set (list ConcState.conc_assignment_tuple).
 
-Definition intersection (x y : Ensemble (list ConcState.conc_state_tuple)) : Ensemble (list ConcState.conc_state_tuple) :=
-Intersection (list ConcState.conc_state_tuple) x y.
+Definition intersection (x y : Ensemble (list ConcState.conc_assignment_tuple)) : Ensemble (list ConcState.conc_assignment_tuple) :=
+Intersection (list ConcState.conc_assignment_tuple) x y.
 
 
 End SymbolicExec.
@@ -338,8 +338,8 @@ Import SymbolicExec.
 
 Module SERecurs.
 
-Variable init_conc_state: list ConcState.conc_state_tuple.
-Variable Error_States : Ensemble (list ConcState.conc_state_tuple).
+Variable init_conc_state: list ConcState.conc_assignment_tuple.
+Variable Error_States : Ensemble (list ConcState.conc_assignment_tuple).
 Variable tree_list : list SE_tree.
 Variable alpha : SymbolicExec.symbolic_mapping.
 
@@ -390,17 +390,17 @@ is_list_leaf s t <->
 Definition cm := SymbolicExec.path_condition -> SymbolicExec.symbolic_mapping.
 Axiom compute_mapping : cm.
 
-Definition plug_in := SymbolicExec.symbolic_mapping -> list ConcState.conc_input_tuple.
+Definition plug_in := SymbolicExec.symbolic_mapping -> list ConcState.conc_input_assignment_tuple.
 Axiom plug_in_input_values : plug_in.
 
-Definition get_input (pc : SymbolicExec.path_condition) : list ConcState.conc_input_tuple:=
+Definition get_input (pc : SymbolicExec.path_condition) : list ConcState.conc_input_assignment_tuple:=
 plug_in_input_values (compute_mapping pc). 
 
 
 Axiom get_input_def :
 (* Finds inputs given a pc that satisfy that pc *)
-forall (l : node_tuple) (a : SymbolicExec.symbolic_mapping) ( i : list sym_input_tuple) , 
-((exists (s : list sym_state_tuple) ,
+forall (l : node_tuple) (a : SymbolicExec.symbolic_mapping) ( i : list sym_input_assignment_tuple) , 
+((exists (s : list sym_assignment_tuple) ,
 (is_leaf l (sym_ex s i)) /\
 (pc_eval (get_pc l) a))) ->
 (list_input_instantiate i a)
@@ -411,42 +411,42 @@ forall (l : node_tuple) (a : SymbolicExec.symbolic_mapping) ( i : list sym_input
 (* Takes as input symbolic state of root and pc of its leaf 
 and returns all and only the concrete states that will take us down 
 the path that leads to the leaf. *)
-Definition c_o_1 := SE_tree -> Ensemble (list ConcState.conc_state_tuple).
+Definition c_o_1 := SE_tree -> Ensemble (list ConcState.conc_assignment_tuple).
 Axiom circle_op_1 : c_o_1.
 
-Definition c_o_2 := SE_tree -> Ensemble (list ConcState.conc_state_tuple).
+Definition c_o_2 := SE_tree -> Ensemble (list ConcState.conc_assignment_tuple).
 Axiom circle_op_2 : c_o_2.
 
 
 Axiom c_o_1_def : 
-forall (t : SE_tree) (cs : list ConcState.conc_state_tuple)
+forall (t : SE_tree) (cs : list ConcState.conc_assignment_tuple)
 ,
 is_element_of (circle_op_1 t) cs <->
-exists (s : list sym_state_tuple) (s' : node_tuple)
+exists (s : list sym_assignment_tuple) (s' : node_tuple)
  (a : SymbolicExec.symbolic_mapping)
 ,
-(s = (get_sym_state (root t))) /\
+(s = (get_sym_assignment (root t))) /\
 (is_list_leaf s' t) /\
 (pc_eval (get_pc s') a) /\
 cs = list_state_instantiate s a.
 
 Axiom c_o_2_def : 
-forall (t : SE_tree) (cs: list ConcState.conc_state_tuple)
+forall (t : SE_tree) (cs: list ConcState.conc_assignment_tuple)
 ,
 is_element_of (circle_op_2 t) cs <->
-exists (s : list sym_state_tuple) (s' : node_tuple) (a : SymbolicExec.symbolic_mapping)
+exists (s : list sym_assignment_tuple) (s' : node_tuple) (a : SymbolicExec.symbolic_mapping)
 ,
-(s = (get_sym_state (root t))) /\
+(s = (get_sym_assignment (root t))) /\
 (is_list_leaf s' t) /\
 (pc_eval (get_pc s') a) /\
-(cs = list_state_instantiate (get_sym_state s') a).
+(cs = list_state_instantiate (get_sym_assignment s') a).
 
 
 
 
 Theorem circle_op_property_2: 
-forall (s : list sym_state_tuple) (sym_inp : list sym_input_tuple) 
-(x : list ConcState.conc_state_tuple) ,
+forall (s : list sym_assignment_tuple) (sym_inp : list sym_input_assignment_tuple) 
+(x : list ConcState.conc_assignment_tuple) ,
 is_element_of 
 (circle_op_1 (sym_ex s sym_inp)) x 
 ->
@@ -483,18 +483,18 @@ apply H1. Qed.
 
 Axiom SE_tree_def : 
 forall t : SE_tree, 
-exists (s : list sym_state_tuple) (i : list sym_input_tuple),
+exists (s : list sym_assignment_tuple) (i : list sym_input_assignment_tuple),
 t = sym_ex s i.
 
 Theorem circle_op_property : 
 forall (t : SE_tree),
-forall (x : list conc_state_tuple),
+forall (x : list conc_assignment_tuple),
 is_element_of (circle_op_1 t) x ->
 is_element_of (circle_op_2 t)
   (conc_ex x
      (get_input (get_pc (find_leaf t)))).
 Proof. intros.
-assert (exists (s : list sym_state_tuple) (i : list sym_input_tuple),
+assert (exists (s : list sym_assignment_tuple) (i : list sym_input_assignment_tuple),
 t = sym_ex s i). apply SE_tree_def. destruct H0. destruct H0.
 rewrite H0.
 apply circle_op_property_2. rewrite <- H0. apply H. Qed.
@@ -538,7 +538,7 @@ trees_connect b a.
 
 
 
-Fixpoint execute_tree_list (tlist : list SE_tree) : list ConcState.conc_state_tuple :=
+Fixpoint execute_tree_list (tlist : list SE_tree) : list ConcState.conc_assignment_tuple :=
 match tlist with
 |nil => init_conc_state
 |h :: nil => conc_ex (init_conc_state) (get_input (get_pc (find_leaf h)))
@@ -561,7 +561,7 @@ Qed.
 
 (*** SET PROPERTIES ***)
 Theorem set_property_1:
-forall (A : list ConcState.conc_state_tuple) (B C : Ensemble (list ConcState.conc_state_tuple)),
+forall (A : list ConcState.conc_assignment_tuple) (B C : Ensemble (list ConcState.conc_assignment_tuple)),
 (is_element_of B A)
 /\ (is_subset B C)
 -> (is_element_of C A).
@@ -571,10 +571,10 @@ apply H0.
 unfold is_element_of in H. apply H. Qed.
 
 Theorem set_property_2:
-forall (A : (list ConcState.conc_state_tuple)) (B C : Ensemble (list ConcState.conc_state_tuple)) (i : list ConcState.conc_input_tuple),
+forall (A : (list ConcState.conc_assignment_tuple)) (B C : Ensemble (list ConcState.conc_assignment_tuple)) (i : list ConcState.conc_input_assignment_tuple),
 ((is_element_of B A)
 /\
-(forall (x : (list ConcState.conc_state_tuple)),
+(forall (x : (list ConcState.conc_assignment_tuple)),
 is_element_of B x
 -> is_element_of C (conc_ex  x i))
 )
@@ -589,12 +589,12 @@ apply H0. apply H. Qed.
 (*** APPLICATION OF SET PROPERTIES ***)
 
 Theorem P1_and_circle_op_prop:
-forall (t : list SE_tree) (i: list ConcState.conc_input_tuple),
+forall (t : list SE_tree) (i: list ConcState.conc_input_assignment_tuple),
 ((is_element_of 
   (circle_op_1 (last_elem t)) 
   init_conc_state)
 /\
-(forall (x : list ConcState.conc_state_tuple),
+(forall (x : list ConcState.conc_assignment_tuple),
 is_element_of 
   (circle_op_1 (last_elem t)) x
 -> is_element_of (circle_op_2(last_elem t)) (conc_ex  x i)))
@@ -602,12 +602,12 @@ is_element_of
 Proof. intros. apply set_property_2 in H. apply H. Qed.
 
 Theorem P1_and_circle_op_prop_ind_step:
-forall (t : list SE_tree) (i: list ConcState.conc_input_tuple) ,
+forall (t : list SE_tree) (i: list ConcState.conc_input_assignment_tuple) ,
 ((is_element_of 
   (circle_op_1 (last_elem t)) 
   (execute_tree_list (front t)))
 /\
-(forall (x : list ConcState.conc_state_tuple),
+(forall (x : list ConcState.conc_assignment_tuple),
 is_element_of 
   (circle_op_1 (last_elem t)) x
 -> is_element_of (circle_op_2(last_elem t)) (conc_ex x i)))

@@ -98,7 +98,7 @@ end.
 
 
 (* Logical and used for King Property 2 *)
-Definition and := symbolic_expression -> symbolic_expression -> symbolic_expression.
+Definition and := path_condition -> path_condition -> path_condition.
 Axiom logical_and : and.
 
 
@@ -215,12 +215,25 @@ match li with
               (instantiate (get_inp_sym_exp i) a)) :: (list_input_instantiate head a)
 end.
 
+(* Sound Paths:  For each terminal leaf in the tree 
+(corresponding to a completed execution path) 
+there does exist a particular nonsymbolic input to the program which, when
+executed in the normal fashion, will trace the same path
+(list of statements executed). This is equivalent to saying
+that pc never becomes identically false. *)
 
-(*Axiom sound_paths :
-forall (a : symbolic_mapping) (s : list sym_state_tuple)
+Axiom sound_paths :
+forall  (s : list sym_state_tuple)
 (i : list sym_input_tuple) (n : node_tuple),
 in_tree n (sym_ex s i)  ->
-(pc_eval (instantiate (get_pc n) a)).
+exists (a : symbolic_mapping),
+(pc_eval (get_pc n) a).
+
+(* Unique Paths : pc's associated with any two terminal leaves are
+distinct. The two paths from the
+common root of the execution tree leading to any two
+terminal leaves have a unique forking node where the
+two paths diverge.  *) 
 
 Axiom unique_paths : 
 forall (a : symbolic_mapping) (s : list sym_state_tuple)
@@ -232,8 +245,7 @@ t = sym_ex s i
 /\ in_tree n2 t
 /\ (is_child_of n1 n2 t = False)
 /\(is_child_of n2 n1 t = False)
-->(pc_eval (instantiate (logical_and (get_pc n1) (get_pc n2)) a)) = False.
-*)
+->(pc_eval (logical_and (get_pc n1) (get_pc n2)) a) = False.
 
 Axiom commutativity:
 forall 
